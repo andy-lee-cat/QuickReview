@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QuickReview - 上传题目</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>QuickReview 刷题系统</h1>
+            <div class="nav">
+                <a href="/">刷题</a>
+                <a href="/banks">题库管理</a>
+                <a href="/stats">统计</a>
+                <a href="/upload">上传题目</a>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2 style="margin-bottom: 20px;">上传题目</h2>
+
+            <div id="message" class="hidden"></div>
+
+            <div style="margin-bottom: 20px;">
+                <label style="display: block; margin-bottom: 10px; font-weight: 600;">题库名称：</label>
+                <input type="text" id="bank-name" placeholder="输入题库名称（新建或已存在的题库）" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 8px;">
+                <p style="font-size: 0.9em; color: #666; margin-top: 5px;">
+                    如果题库不存在将自动创建；如果已存在则追加题目到该题库
+                </p>
+            </div>
+
+            <div style="margin-top: 30px;">
+                <h3 style="margin-bottom: 10px;">JSON 格式示例：</h3>
+                <div class="json-example">[
+  {
+    "question": "什么是Python?",
+    "answer": "Python是一种高级编程语言，以简洁优雅著称。"
+  },
+  {
+    "question": "什么是Flask?",
+    "answer": "Flask是一个轻量级的Python Web框架。"
+  }
+]</div>
+            </div>
+
+            <div style="margin-top: 20px;">
+                <h3 style="margin-bottom: 10px;">粘贴 JSON 内容：</h3>
+                <textarea id="json-input" style="width: 100%; height: 300px; padding: 10px; border: 1px solid #ccc; border-radius: 8px; font-family: monospace; font-size: 0.95em;" placeholder='[{"question": "题目", "answer": "答案"}]'></textarea>
+                <button class="btn btn-primary" style="margin-top: 10px; width: 100%;" onclick="uploadQuestions()">
+                    上传题目
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function uploadQuestions() {
+            const bankName = document.getElementById('bank-name').value.trim();
+            const text = document.getElementById('json-input').value.trim();
+
+            if (!bankName) {
+                showMessage('请输入题库名称', 'error');
+                return;
+            }
+
+            if (!text) {
+                showMessage('请输入 JSON 数据', 'error');
+                return;
+            }
+
+            let questions;
+            try {
+                questions = JSON.parse(text);
+            } catch (error) {
+                showMessage('JSON 格式错误: ' + error.message, 'error');
+                return;
+            }
+
+            if (!Array.isArray(questions)) {
+                showMessage('JSON 必须是数组格式', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/questions/upload', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        bank_name: bankName,
+                        questions: questions
+                    })
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    showMessage(result.message, 'success');
+                    document.getElementById('json-input').value = '';
+                } else {
+                    showMessage(result.error || '上传失败', 'error');
+                }
+            } catch (error) {
+                showMessage('上传失败: ' + error.message, 'error');
+            }
+        }
+
+        function showMessage(text, type) {
+            const messageDiv = document.getElementById('message');
+            messageDiv.textContent = text;
+            messageDiv.className = `message ${type}`;
+            messageDiv.classList.remove('hidden');
+
+            setTimeout(() => {
+                messageDiv.classList.add('hidden');
+            }, 5000);
+        }
+    </script>
+</body>
+</html>

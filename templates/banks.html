@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QuickReview - 题库管理</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>QuickReview 刷题系统</h1>
+            <div class="nav">
+                <a href="/">刷题</a>
+                <a href="/banks">题库管理</a>
+                <a href="/stats">统计</a>
+                <a href="/upload">上传题目</a>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2 style="margin-bottom: 20px;">题库管理</h2>
+
+            <div id="message" class="hidden"></div>
+
+            <div style="margin-bottom: 30px;">
+                <h3 style="margin-bottom: 10px;">创建新题库</h3>
+                <input type="text" id="bank-name" placeholder="题库名称" style="width: 100%; padding: 10px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 8px;">
+                <textarea id="bank-description" placeholder="题库描述（可选）" style="width: 100%; height: 80px; padding: 10px; border: 1px solid #ccc; border-radius: 8px; font-family: inherit;"></textarea>
+                <button class="btn btn-primary" style="margin-top: 10px; width: 100%;" onclick="createBank()">
+                    创建题库
+                </button>
+            </div>
+
+            <div>
+                <h3 style="margin-bottom: 10px;">现有题库</h3>
+                <div id="banks-list" style="max-height: 400px; overflow-y: auto;">
+                    <div style="text-align: center; color: #999;">加载中...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function loadBanks() {
+            try {
+                const response = await fetch('/api/banks/');
+                const banks = await response.json();
+
+                const listHtml = banks.map(bank => `
+                    <div class="question-item" style="margin-bottom: 15px;">
+                        <div class="question-summary" style="align-items: flex-start;">
+                            <div style="flex: 1;">
+                                <div style="font-weight: 600; font-size: 1.1em; margin-bottom: 5px;">${bank.name}</div>
+                                ${bank.description ? `<div style="color: #666; margin-bottom: 5px;">${bank.description}</div>` : ''}
+                                <div style="font-size: 0.9em; color: #999;">
+                                    ${bank.question_count} 道题目 · 创建于 ${new Date(bank.created_at).toLocaleDateString()}
+                                </div>
+                            </div>
+                            <div style="display: flex; gap: 10px;">
+                                <button class="btn btn-primary" style="padding: 8px 16px;" onclick="goToPractice(${bank.id})">
+                                    开始刷题
+                                </button>
+                                <button class="btn btn-danger" style="padding: 8px 16px;" onclick="deleteBank(${bank.id}, '${bank.name}')">
+                                    删除
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+
+                document.getElementById('banks-list').innerHTML =
+                    listHtml || '<div style="text-align: center; color: #999;">暂无题库</div>';
+
+            } catch (error) {
+                document.getElementById('banks-list').innerHTML = '<div style="text-align: center; color: #f56565;">加载失败: ' + error.message + '</div>';
+            }
+        }
+
+        async function createBank() {
+            const name = document.getElementById('bank-name').value.trim();
+            const description = document.getElementById('bank-description').value.trim();
+
+            if (!name) {
+                showMessage('请输入题库名称', 'error');
+                return;
+            }
+
+            try {
+                const response = await fetch('/api/banks/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ name, description })
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    showMessage('题库创建成功', 'success');
+                    document.getElementById('bank-name').value = '';
+                    document.getElementById('bank-description').value = '';
+                    loadBanks();
+                } else {
+                    showMessage(result.error || '创建失败', 'error');
+                }
+            } catch (error) {
+                showMessage('创建失败: ' + error.message, 'error');
+            }
+        }
+
+        async function deleteBank(bankId, bankName) {
+            if (!confirm(`确定要删除题库"${bankName}"吗？这将删除该题库下的所有题目和答题记录！`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`/api/banks/${bankId}`, {
+                    method: 'DELETE'
+                });
+
+                const result = await response.json();
+
+                if (response.ok) {
+                    showMessage('删除成功', 'success');
+                    loadBanks();
+                } else {
+                    showMessage(result.error || '删除失败', 'error');
+                }
+            } catch (error) {
+                showMessage('删除失败: ' + error.message, 'error');
+            }
+        }
+
+        function goToPractice(bankId) {
+            window.location.href = `/?bank_id=${bankId}`;
+        }
+
+        function showMessage(text, type) {
+            const messageDiv = document.getElementById('message');
+            messageDiv.textContent = text;
+            messageDiv.className = `message ${type}`;
+            messageDiv.classList.remove('hidden');
+
+            setTimeout(() => {
+                messageDiv.classList.add('hidden');
+            }, 5000);
+        }
+
+        // 页面加载时获取题库列表
+        loadBanks();
+    </script>
+</body>
+</html>

@@ -1,0 +1,22 @@
+[
+  {
+    "question": "什么是Python？",
+    "answer": "Python是一种高级、解释型、面向对象的编程语言，由Guido van Rossum于1991年创建。它以简洁优雅的语法著称，强调代码的可读性。"
+  },
+  {
+    "question": "什么是Flask？",
+    "answer": "Flask是一个使用Python编写的轻量级Web应用框架。它被称为微框架，因为它保持核心简单但可扩展。Flask基于Werkzeug WSGI工具包和Jinja2模板引擎。"
+  },
+  {
+    "question": "什么是SQLAlchemy？",
+    "answer": "SQLAlchemy是Python中最流行的SQL工具包和对象关系映射(ORM)库。它提供了一套完整的企业级持久化模式，允许开发者使用Python对象来操作数据库。"
+  },
+  {
+    "question": "解释Python中的装饰器",
+    "answer": "装饰器是Python中的一种设计模式，用于在不修改函数本身的情况下，给函数添加新的功能。装饰器本质上是一个接受函数作为参数并返回一个新函数的函数。使用@符号语法糖来应用装饰器。"
+  },
+  {
+    "question": "什么是RESTful API？",
+    "answer": "REST(Representational State Transfer)是一种软件架构风格，用于设计网络应用程序。RESTful API使用HTTP方法(GET、POST、PUT、DELETE等)来操作资源，通过URL来标识资源，并使用JSON或XML格式传输数据。"
+  }
+]

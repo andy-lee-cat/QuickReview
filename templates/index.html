@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QuickReview - 刷题</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>QuickReview 刷题系统</h1>
+            <div class="nav">
+                <a href="/">刷题</a>
+                <a href="/banks">题库管理</a>
+                <a href="/stats">统计</a>
+                <a href="/upload">上传题目</a>
+            </div>
+        </div>
+
+        <div class="card" style="margin-bottom: 20px; padding: 20px;">
+            <label style="display: block; margin-bottom: 10px; font-weight: 600;">选择题库：</label>
+            <select id="bank-select" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 8px; font-size: 1em;" onchange="onBankChange()">
+                <option value="">加载中...</option>
+            </select>
+        </div>
+
+        <div class="card question-card">
+            <div id="loading" class="question-text" style="text-align: center; color: #999;">
+                选择题库后点击"下一题"开始刷题
+            </div>
+
+            <div id="question-content" class="hidden">
+                <div class="question-text" id="question-text"></div>
+
+                <div id="answer-section" class="answer-section hidden">
+                    <h3 style="margin-bottom: 10px;">答案：</h3>
+                    <div class="answer-text" id="answer-text"></div>
+
+                    <div id="stats-info" style="margin-top: 15px; padding: 10px; background: #f0f0f0; border-radius: 5px; font-size: 0.9em;">
+                        <div style="display: flex; gap: 20px; flex-wrap: wrap; align-items: center;">
+                            <span style="display: flex; align-items: center; gap: 4px;">📊 答题次数: <strong id="total-count">0</strong></span>
+                            <span style="display: flex; align-items: center; gap: 4px; color: #48bb78;">✓ 答对: <strong id="correct-count">0</strong></span>
+                            <span style="display: flex; align-items: center; gap: 4px; color: #f56565;">✗ 答错: <strong id="wrong-count">0</strong></span>
+                            <span style="display: flex; align-items: center; gap: 4px; color: #667eea;">🎯 正确率: <strong id="accuracy-rate">0%</strong></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="btn-group">
+                <button class="btn btn-primary" id="show-answer-btn" onclick="showAnswer()" disabled>
+                    显示答案
+                </button>
+                <button class="btn btn-success" id="correct-btn" onclick="recordAnswer(true)" disabled>
+                    ✓ 答对了
+                </button>
+                <button class="btn btn-danger" id="wrong-btn" onclick="recordAnswer(false)" disabled>
+                    ✗ 答错了
+                </button>
+            </div>
+
+            <div class="btn-group" style="margin-top: 10px;">
+                <button class="btn btn-primary" id="next-btn" onclick="loadQuestion()" disabled>
+                    下一题
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentQuestion = null;
+        let currentBankId = null;
+
+        async function loadBanks() {
+            try {
+                const response = await fetch('/api/banks/');
+                const banks = await response.json();
+
+                const select = document.getElementById('bank-select');
+                if (banks.length === 0) {
+                    select.innerHTML = '<option value="">暂无题库，请先创建题库</option>';
+                    return;
+                }
+
+                select.innerHTML = '<option value="">-- 请选择题库 --</option>' +
+                    banks.map(bank => `<option value="${bank.id}">${bank.name} (${bank.question_count}题)</option>`).join('');
+
+                // 从URL参数获取题库ID
+                const urlParams = new URLSearchParams(window.location.search);
+                const bankIdFromUrl = urlParams.get('bank_id');
+                if (bankIdFromUrl && banks.some(b => b.id == bankIdFromUrl)) {
+                    select.value = bankIdFromUrl;
+                    onBankChange();
+                }
+            } catch (error) {
+                alert('加载题库失败: ' + error.message);
+            }
+        }
+
+        function onBankChange() {
+            const select = document.getElementById('bank-select');
+            currentBankId = select.value ? parseInt(select.value) : null;
+
+            // 重置界面
+            document.getElementById('loading').classList.remove('hidden');
+            document.getElementById('question-content').classList.add('hidden');
+            document.getElementById('next-btn').disabled = !currentBankId;
+
+            if (currentBankId) {
+                document.getElementById('loading').textContent = '点击"下一题"开始刷题';
+            } else {
+                document.getElementById('loading').textContent = '选择题库后点击"下一题"开始刷题';
+            }
+        }
+
+        async function loadQuestion() {
+            if (!currentBankId) {
+                alert('请先选择题库');
+                return;
+            }
+
+            try {
+                // 重置界面
+                document.getElementById('loading').classList.remove('hidden');
+                document.getElementById('question-content').classList.add('hidden');
+                document.getElementById('answer-section').classList.add('hidden');
+                document.getElementById('show-answer-btn').disabled = true;
+                document.getElementById('correct-btn').disabled = true;
+                document.getElementById('wrong-btn').disabled = true;
+
+                const response = await fetch(`/api/questions/random?bank_id=${currentBankId}`);
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.error || '获取题目失败');
+                }
+
+                currentQuestion = await response.json();
+
+                // 显示题目
+                document.getElementById('loading').classList.add('hidden');
+                document.getElementById('question-content').classList.remove('hidden');
+                document.getElementById('question-text').textContent = currentQuestion.question;
+                document.getElementById('show-answer-btn').disabled = false;
+            } catch (error) {
+                document.getElementById('loading').textContent = '加载题目失败: ' + error.message;
+            }
+        }
+
+        async function showAnswer() {
+            if (!currentQuestion) return;
+
+            try {
+                const response = await fetch(`/api/questions/${currentQuestion.id}/answer`);
+                if (!response.ok) {
+                    throw new Error('获取答案失败');
+                }
+
+                const data = await response.json();
+                document.getElementById('answer-text').textContent = data.answer;
+
+                // 显示统计信息
+                if (data.stats) {
+                    document.getElementById('total-count').textContent = data.stats.total_count;
+                    document.getElementById('correct-count').textContent = data.stats.correct_count;
+                    document.getElementById('wrong-count').textContent = data.stats.wrong_count;
+                    document.getElementById('accuracy-rate').textContent =
+                        (data.stats.accuracy * 100).toFixed(1) + '%';
+                }
+
+                document.getElementById('answer-section').classList.remove('hidden');
+
+                // 启用答题按钮，禁用显示答案按钮
+                document.getElementById('show-answer-btn').disabled = true;
+                document.getElementById('correct-btn').disabled = false;
+                document.getElementById('wrong-btn').disabled = false;
+            } catch (error) {
+                alert('加载答案失败: ' + error.message);
+            }
+        }
+
+        async function recordAnswer(isCorrect) {
+            if (!currentQuestion) return;
+
+            try {
+                const response = await fetch(`/api/questions/${currentQuestion.id}/record`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ is_correct: isCorrect })
+                });
+
+                if (!response.ok) {
+                    throw new Error('记录答题失败');
+                }
+
+                // 自动加载下一题
+                loadQuestion();
+            } catch (error) {
+                alert('记录答题失败: ' + error.message);
+            }
+        }
+
+        // 页面加载时获取题库列表
+        loadBanks();
+    </script>
+</body>
+</html>

@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QuickReview - 统计</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>QuickReview 刷题系统</h1>
+            <div class="nav">
+                <a href="/">刷题</a>
+                <a href="/banks">题库管理</a>
+                <a href="/stats">统计</a>
+                <a href="/upload">上传题目</a>
+            </div>
+        </div>
+
+        <div class="card" style="margin-bottom: 20px; padding: 20px;">
+            <label style="display: block; margin-bottom: 10px; font-weight: 600;">筛选题库：</label>
+            <select id="bank-select" style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 8px; font-size: 1em;" onchange="loadStats()">
+                <option value="">加载中...</option>
+            </select>
+        </div>
+
+        <div class="card">
+            <h2 style="margin-bottom: 20px;">总体统计</h2>
+            <div class="stats-grid" id="overall-stats">
+                <div class="stat-card">
+                    <div class="stat-value" id="total-questions">-</div>
+                    <div class="stat-label">题目总数</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="total-records">-</div>
+                    <div class="stat-label">答题次数</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="correct-count">-</div>
+                    <div class="stat-label">答对次数</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value" id="accuracy">-</div>
+                    <div class="stat-label">正确率</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2 style="margin-bottom: 20px;">题目详情</h2>
+            <div class="question-list" id="question-list">
+                <div style="text-align: center; color: #999;">加载中...</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentBankId = null;
+
+        async function loadBanks() {
+            try {
+                const response = await fetch('/api/banks/');
+                const banks = await response.json();
+
+                const select = document.getElementById('bank-select');
+                if (banks.length === 0) {
+                    select.innerHTML = '<option value="">暂无题库</option>';
+                    return;
+                }
+
+                select.innerHTML = '<option value="">全部题库</option>' +
+                    banks.map(bank => `<option value="${bank.id}">${bank.name} (${bank.question_count}题)</option>`).join('');
+
+            } catch (error) {
+                console.error('加载题库失败:', error);
+            }
+        }
+
+        async function loadStats() {
+            const select = document.getElementById('bank-select');
+            currentBankId = select.value ? parseInt(select.value) : null;
+
+            const queryParam = currentBankId ? `?bank_id=${currentBankId}` : '';
+
+            try {
+                // 加载总体统计
+                const overallResponse = await fetch(`/api/stats/${queryParam}`);
+                const overallData = await overallResponse.json();
+
+                document.getElementById('total-questions').textContent = overallData.total_questions;
+                document.getElementById('total-records').textContent = overallData.total_records;
+                document.getElementById('correct-count').textContent = overallData.correct_records;
+                document.getElementById('accuracy').textContent =
+                    (overallData.accuracy * 100).toFixed(1) + '%';
+
+                // 加载题目统计
+                const questionsResponse = await fetch(`/api/stats/questions${queryParam}`);
+                const questionsData = await questionsResponse.json();
+
+                const listHtml = questionsData.map(q => {
+                    const accuracy = (q.accuracy * 100).toFixed(1);
+                    let accuracyClass = '';
+                    if (q.total_count > 0) {
+                        if (accuracy < 50) accuracyClass = 'low-accuracy';
+                        else if (accuracy >= 80) accuracyClass = 'high-accuracy';
+                    }
+
+                    return `
+                        <div class="question-item ${accuracyClass}">
+                            <div class="question-summary">
+                                <div style="flex: 1; font-weight: 500;">${q.question.substring(0, 100)}${q.question.length > 100 ? '...' : ''}</div>
+                            </div>
+                            <div class="question-stats">
+                                <span>答题: ${q.total_count}次</span>
+                                <span style="color: #48bb78;">✓ ${q.correct_count}</span>
+                                <span style="color: #f56565;">✗ ${q.wrong_count}</span>
+                                <span>正确率: ${accuracy}%</span>
+                                ${q.last_review ? `<span>最近: ${new Date(q.last_review).toLocaleDateString()}</span>` : ''}
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+
+                document.getElementById('question-list').innerHTML =
+                    listHtml || '<div style="text-align: center; color: #999;">暂无数据</div>';
+
+            } catch (error) {
+                alert('加载统计数据失败: ' + error.message);
+            }
+        }
+
+        // 页面加载时获取题库列表和统计数据
+        async function init() {
+            await loadBanks();
+            await loadStats();
+        }
+
+        init();
+    </script>
+</body>
+</html>
