@@ -107,9 +107,12 @@
                     }
 
                     return `
-                        <div class="question-item ${accuracyClass}">
+                        <div class="question-item ${accuracyClass}" id="question-${q.id}" onclick="toggleAnswer(${q.id})" style="cursor: pointer;">
                             <div class="question-summary">
-                                <div style="flex: 1; font-weight: 500;">${q.question.substring(0, 100)}${q.question.length > 100 ? '...' : ''}</div>
+                                <div style="flex: 1; font-weight: 500;">
+                                    ${q.question}
+                                    <span style="color: #999; font-size: 0.85em; margin-left: 8px;">点击查看答案</span>
+                                </div>
                             </div>
                             <div class="question-stats">
                                 <span>答题: ${q.total_count}次</span>
@@ -117,6 +120,10 @@
                                 <span style="color: #f56565;">✗ ${q.wrong_count}</span>
                                 <span>正确率: ${accuracy}%</span>
                                 ${q.last_review ? `<span>最近: ${new Date(q.last_review).toLocaleDateString()}</span>` : ''}
+                            </div>
+                            <div id="answer-${q.id}" class="answer-section" style="display: none; margin-top: 10px; padding-top: 10px; border-top: 1px solid #ddd;">
+                                <div style="color: #666; font-size: 0.9em; margin-bottom: 5px;">答案：</div>
+                                <div style="color: #2c3e50; white-space: pre-wrap;"></div>
                             </div>
                         </div>
                     `;
@@ -128,6 +135,36 @@
             } catch (error) {
                 alert('加载统计数据失败: ' + error.message);
             }
+        }
+
+        // 切换答案显示/隐藏
+        async function toggleAnswer(questionId) {
+            const answerDiv = document.getElementById(`answer-${questionId}`);
+            const answerContent = answerDiv.querySelector('div:last-child');
+
+            // 如果已经显示，则隐藏
+            if (answerDiv.style.display === 'block') {
+                answerDiv.style.display = 'none';
+                return;
+            }
+
+            // 如果答案还没加载，则获取答案
+            if (!answerContent.textContent) {
+                try {
+                    const response = await fetch(`/api/questions/${questionId}/answer`);
+                    if (!response.ok) {
+                        throw new Error('获取答案失败');
+                    }
+                    const data = await response.json();
+                    answerContent.textContent = data.answer;
+                } catch (error) {
+                    answerContent.textContent = '加载失败: ' + error.message;
+                    answerContent.style.color = '#f56565';
+                }
+            }
+
+            // 显示答案
+            answerDiv.style.display = 'block';
         }
 
         // 页面加载时获取题库列表和统计数据
